@@ -1,11 +1,11 @@
 import telebot
 
-# ⚠️ Yahan apna real token paste karein (Double quotes "" ke andar)
+# Yahan apna real token paste karein (Double quotes "" ke andar)
 API_TOKEN = "8702563696:AAHb9hNZ4Q8Y5lnBOrr7AbooyLicmczV1bg"
 
 bot = telebot.TeleBot(API_TOKEN)
 
-# 1. Naye aane wale aur left hone wale users ke messages instantly delete karne ke liye
+# Naye aane wale aur left hone wale users ke messages instantly delete karne ke liye
 @bot.message_handler(content_types=['new_chat_members', 'left_chat_member'])
 def delete_system_messages(message):
     try:
@@ -17,6 +17,6 @@ def delete_system_messages(message):
 
 if __name__ == "__main__":
     print("Gold Expert Helper Bot is active and running securely...")
-    # non_stop=True aur timeout=10 isay bina crash ke super-fast chalayega
-    bot.infinity_polling(non_stop=True, timeout=10)
+    # non_stop parameter ko hata diya hai taake crash na ho
+    bot.infinity_polling(timeout=10)
     

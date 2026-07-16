@@ -131,8 +131,8 @@ def callback_check_membership(call):
 def send_main_menu(user_id, first_name):
     markup = InlineKeyboardMarkup(row_width=2)
     
-    btn_broker = InlineKeyboardButton("🌐 Broker", url=BROKER_LINK)
-    btn_vip = InlineKeyboardButton("🥇 VIP VIP", callback_data="join_vip_info")
+    btn_broker = InlineKeyboardButton("🌐 Recommend Broker", url=BROKER_LINK)
+    btn_vip = InlineKeyboardButton("🥇 Free VIP", callback_data="join_vip_info")
     btn_whatsapp = InlineKeyboardButton("💬 WhatsApp", url=WHATSAPP_LINK)
     btn_support = InlineKeyboardButton("👤 Contact", callback_data="contact_owner_live")
     

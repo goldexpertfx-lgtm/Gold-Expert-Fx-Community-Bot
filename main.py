@@ -9,7 +9,7 @@ import threading
 # ⚙️ CONFIGURATION
 # =====================================================================
 API_TOKEN = "8702563696:AAE5GVUaomXmBpbk-F8o4NU9qhG991YKmT8"  # Apne Bot ka real token dalein
-OWNER_ID = 7415265825  # ⚠️ APNI Telegram ID dalein
+OWNER_ID = 7415265825  # ⚠️ APNI Telegram ID dalein (E.g., 123456789)
 
 # Channel & Group IDs
 FREE_GROUP_ID = -4477244119  
@@ -55,48 +55,12 @@ def init_db():
 init_db()
 
 
-# 👑 Owner Reply Keyboard (Persistent Menu at Bottom)
+# 👑 Owner Reply Keyboard (Fixed: Removed unexpected 'placeholder' to prevent crash)
 def get_owner_reply_keyboard():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, placeholder="Owner Controls")
-    markup.row(KeyboardButton("🎛️ Buttons Editor"), KeyboardButton("📝 Posts Editor"))
-    markup.row(KeyboardButton("💵 Balance"), KeyboardButton("🔒 Admin"))
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row(KeyboardButton("📢 Publish Post"), KeyboardButton("🚫 Ban User"))
+    markup.row(KeyboardButton("⚙️ Settings"), KeyboardButton("📈 Status"))
     return markup
-
-
-# 🔍 Live Verification Status check
-def verify_user_status(user_id):
-    if user_id == OWNER_ID:
-        return True, True
-
-    in_free_group = False
-    in_private_channel = False
-
-    # 1. Free Group Check
-    try:
-        member = bot.get_chat_member(FREE_GROUP_ID, user_id)
-        if member.status in ['member', 'administrator', 'creator']:
-            in_free_group = True
-    except ApiTelegramException:
-        in_free_group = False
-
-    # 2. Private VIP Request Check
-    conn = sqlite3.connect("gold_expert_master.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT status FROM pending_requests WHERE user_id = ?", (user_id,))
-    row = cursor.fetchone()
-    conn.close()
-    
-    if row is not None:
-        in_private_channel = True
-    else:
-        try:
-            member = bot.get_chat_member(PRIVATE_CHANNEL_ID, user_id)
-            if member.status in ['member', 'administrator', 'creator', 'restricted']:
-                in_private_channel = True
-        except ApiTelegramException:
-            in_private_channel = False
-            
-    return in_free_group, in_private_channel
 
 
 # 🏁 Start Command
@@ -118,79 +82,57 @@ def handle_start(message):
     conn.commit()
     conn.close()
     
-    # 👑 OWNER DIRECT ENTRY (With persistent Keyboard)
+    # 👑 OWNER DIRECT ENTRY (With custom persistent keyboard below)
     if user_id == OWNER_ID:
         bot.send_message(
             user_id, 
-            "👑 **Welcome back, Admin!**\nYour control keyboard is activated below.", 
+            "👑 **Admin Workspace Active**", 
             reply_markup=get_owner_reply_keyboard(), 
             parse_mode="Markdown"
         )
         send_main_menu(user_id, first_name)
         return
 
-    in_free, in_private = verify_user_status(user_id)
-    
-    if in_free and in_private:
-        send_main_menu(user_id, first_name)
-    else:
-        send_force_join_screen(user_id, first_name)
+    # Normal users starting the bot
+    send_force_join_screen(user_id, first_name)
 
 
-# 🔒 Force Join Screen (Clean, Short, Premium Emojis)
+# 🔒 Clean VIP Verification Screen (Sleek and compact)
 def send_force_join_screen(user_id, first_name):
     markup = InlineKeyboardMarkup(row_width=2)
-    btn_community = InlineKeyboardButton("🔊 Join Free", url=FREE_GROUP_LINK)
-    btn_private = InlineKeyboardButton("🔑 Request VIP", url=PRIVATE_CHANNEL_LINK)
-    btn_joined = InlineKeyboardButton("✅ Done", callback_data="check_membership")
+    btn_community = InlineKeyboardButton("🔊 Free Group", url=FREE_GROUP_LINK)
+    btn_private = InlineKeyboardButton("🔑 VIP Channel", url=PRIVATE_CHANNEL_LINK)
+    btn_joined = InlineKeyboardButton("🟢 Continue", callback_data="check_membership")
     
     markup.add(btn_community, btn_private)
     markup.add(btn_joined)
     
     welcome_text = (
         f"👋 **Welcome {first_name}!**\n\n"
-        f"**Access Verification:**\n"
-        f"1. Join our **Free Community**\n"
-        f"2. Request access to **Private VIP**\n\n"
-        f"Tap **✅ Done** once completed."
+        f"Unlock your **Gold Expert FX** dashboard below:"
     )
     bot.send_message(user_id, welcome_text, reply_markup=markup, parse_mode="Markdown")
 
 
-# 🔘 Join Verification Action
+# 🔘 Join Verification Action (Bypassed! Even if not joined, they get access on click)
 @bot.callback_query_handler(func=lambda call: call.data == "check_membership")
 def callback_check_membership(call):
     user_id = call.from_user.id
     first_name = call.from_user.first_name
     
-    if user_id == OWNER_ID:
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-        send_main_menu(user_id, first_name)
-        return
-
-    in_free, in_private = verify_user_status(user_id)
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    bot.answer_callback_query(call.id, "✨ Welcome!", show_alert=False)
     
-    if in_free and in_private:
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-        bot.answer_callback_query(call.id, "✨ Verified!", show_alert=False)
-        send_main_menu(user_id, first_name)
-    else:
-        if not in_free and not in_private:
-            err_msg = "⚠️ Please join Free Community & request Private VIP first."
-        elif not in_free:
-            err_msg = "⚠️ You haven't joined the Free Community yet."
-        else:
-            err_msg = "⚠️ Please send a request to the Private VIP Channel."
-            
-        bot.answer_callback_query(call.id, err_msg, show_alert=True)
+    # Direct access granted to everyone on click!
+    send_main_menu(user_id, first_name)
 
 
-# 📱 Sleek Dashboard Menu (Shorter, Cleaner Inline Buttons)
+# 📱 Sleek VIP Dashboard Menu (Compact Buttons)
 def send_main_menu(user_id, first_name):
     markup = InlineKeyboardMarkup(row_width=2)
     
-    btn_broker = InlineKeyboardButton("🌐 Broker Guide", url=BROKER_LINK)
-    btn_vip = InlineKeyboardButton("🥇 Join VIP", callback_data="join_vip_info")
+    btn_broker = InlineKeyboardButton("🌐 Broker", url=BROKER_LINK)
+    btn_vip = InlineKeyboardButton("🥇 VIP VIP", callback_data="join_vip_info")
     btn_whatsapp = InlineKeyboardButton("💬 WhatsApp", url=WHATSAPP_LINK)
     btn_support = InlineKeyboardButton("👤 Contact", callback_data="contact_owner_live")
     
@@ -199,28 +141,28 @@ def send_main_menu(user_id, first_name):
     markup.add(btn_support)
     
     menu_msg = (
-        f"🏆 **Gold Expert FX**\n\n"
-        f"Hello **{first_name}**! Your access is fully active.\n"
-        f"Select an option below to start:"
+        f"✨ **Gold Expert FX**\n\n"
+        f"Hello **{first_name}**! Your access is active.\n"
+        f"Select an option below:"
     )
     bot.send_message(user_id, menu_msg, reply_markup=markup, parse_mode="Markdown")
 
 
-# ⌨️ Handler for Owner Bottom Keyboard Menu Press
-@bot.message_handler(func=lambda msg: msg.chat.id == OWNER_ID and msg.text in ["🎛️ Buttons Editor", "📝 Posts Editor", "💵 Balance", "🔒 Admin"])
+# ⌨️ Persistent Bottom Keyboard Actions (For Owner Only)
+@bot.message_handler(func=lambda msg: msg.chat.id == OWNER_ID and msg.text in ["📢 Publish Post", "🚫 Ban User", "⚙️ Settings", "📈 Status"])
 def handle_owner_reply_keyboard(message):
     action = message.text
-    if action == "🔒 Admin":
-        handle_admin_panel(message)
-    elif action == "📝 Posts Editor":
-        msg = bot.send_message(OWNER_ID, "📢 Send or forward the **post** you want to broadcast:")
+    if action == "📢 Publish Post":
+        msg = bot.send_message(OWNER_ID, "📝 Send or forward the **post** to broadcast:")
         bot.register_next_step_handler(msg, prepare_broadcast)
+    elif action == "🚫 Ban User":
+        msg = bot.send_message(OWNER_ID, "🚫 Send the user's numeric **Telegram ID** to ban:")
+        bot.register_next_step_handler(msg, process_remove_user)
     else:
-        # Placeholder responses for customization
-        bot.send_message(OWNER_ID, f"⚡ **{action}** selected. (Under development / Customize as needed!)")
+        bot.send_message(OWNER_ID, f"⚡ **{action}** is currently active.")
 
 
-# ✉️ Interactive Dashboard Actions
+# ✉️ Interactive Dashboard Info
 @bot.callback_query_handler(func=lambda call: call.data in ["join_vip_info", "contact_owner_live"])
 def handle_menu_router(call):
     user_id = call.from_user.id
@@ -228,11 +170,11 @@ def handle_menu_router(call):
     
     if call.data == "join_vip_info":
         vip_text = (
-            f"📈 **VIP Setup Guide**\n\n"
-            f"1️⃣ Create an account on our broker link.\n"
+            f"📈 **VIP Setup**\n\n"
+            f"1️⃣ Register account using broker link.\n"
             f"2️⃣ Deposit & start trading.\n"
-            f"3️⃣ Get verified for lifetime access!\n\n"
-            f"🔗 **Link:** {BROKER_LINK}"
+            f"3️⃣ Instant VIP validation!\n\n"
+            f"🔗 **Guide:** {BROKER_LINK}"
         )
         bot.send_message(user_id, vip_text, parse_mode="Markdown")
         bot.answer_callback_query(call.id)
@@ -254,8 +196,8 @@ def forward_to_owner(message):
         return
         
     owner_notification = (
-        f"📩 **New Message**\n\n"
-        f"👤 **User:** {first_name} (@{username})\n"
+        f"📩 **New Msg**\n\n"
+        f"👤 **From:** {first_name} (@{username})\n"
         f"🆔 **ID:** `{user_id}`\n\n"
         f"💬 **Message:** {text}"
     )
@@ -270,8 +212,8 @@ def forward_to_owner(message):
         conn.close()
         
         bot.send_message(user_id, "✅ **Message sent! We will reply shortly.**")
-    except Exception as e:
-        bot.send_message(user_id, "❌ Service temporary offline. Try again later.")
+    except Exception:
+        bot.send_message(user_id, "❌ Support busy. Try again later.")
 
 
 # 🔄 Reply Handler
@@ -291,98 +233,8 @@ def process_owner_reply(message):
             try:
                 bot.send_message(user_id, f"💬 **Message from Owner:**\n\n{message.text}")
                 bot.send_message(OWNER_ID, "✅ **Reply Sent.**")
-            except Exception as e:
-                bot.send_message(OWNER_ID, f"❌ Failed to deliver reply: {e}")
-
-
-# 📥 Join Request Auto Approval
-@bot.chat_join_request_handler()
-def handle_incoming_request(update):
-    if update.chat.id == PRIVATE_CHANNEL_ID:
-        user_id = update.from_user.id
-        first_name = update.from_user.first_name
-        
-        conn = sqlite3.connect("gold_expert_master.db")
-        cursor = conn.cursor()
-        cursor.execute("INSERT OR IGNORE INTO pending_requests (user_id, first_name, status) VALUES (?, ?, 'pending')", (user_id, first_name))
-        conn.commit()
-        conn.close()
-        
-        in_free, _ = verify_user_status(user_id)
-        if in_free:
-            approve_user_access(user_id, first_name)
-
-
-# Approver Execution
-def approve_user_access(user_id, first_name):
-    try:
-        bot.approve_chat_join_request(PRIVATE_CHANNEL_ID, user_id)
-        
-        conn = sqlite3.connect("gold_expert_master.db")
-        cursor = conn.cursor()
-        cursor.execute("UPDATE pending_requests SET status = 'approved' WHERE user_id = ?", (user_id,))
-        conn.commit()
-        conn.close()
-        
-        try:
-            bot.send_message(user_id, f"🎉 Join request approved! Welcome, **{first_name}**!")
-        except Exception:
-            pass
-    except ApiTelegramException as e:
-        if "USER_ALREADY_PARTICIPANT" in str(e):
-            conn = sqlite3.connect("gold_expert_master.db")
-            cursor = conn.cursor()
-            cursor.execute("UPDATE pending_requests SET status = 'approved' WHERE user_id = ?", (user_id,))
-            conn.commit()
-            conn.close()
-
-
-# Background scan for VIP approvals
-def scan_all_pending_requests():
-    while True:
-        try:
-            conn = sqlite3.connect("gold_expert_master.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT user_id, first_name FROM pending_requests WHERE status = 'pending'")
-            all_pending = cursor.fetchall()
-            conn.close()
-            
-            for user_id, first_name in all_pending:
-                in_free, _ = verify_user_status(user_id)
-                if in_free:
-                    approve_user_access(user_id, first_name)
-        except Exception as e:
-            pass
-        time.sleep(15)
-
-threading.Thread(target=scan_all_pending_requests, daemon=True).start()
-
-
-# 👑 ADMIN PANEL
-def handle_admin_panel(message):
-    markup = InlineKeyboardMarkup()
-    btn_broadcast = InlineKeyboardButton("📢 Publish", callback_data="admin_broadcast")
-    btn_remove = InlineKeyboardButton("❌ Ban User", callback_data="admin_remove")
-    markup.add(btn_broadcast, btn_remove)
-    
-    bot.send_message(OWNER_ID, "🛠️ **Admin Controls**", reply_markup=markup, parse_mode="Markdown")
-
-
-# Admin Actions Router
-@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_"))
-def handle_admin_actions(call):
-    if call.from_user.id != OWNER_ID:
-        return
-        
-    if call.data == "admin_broadcast":
-        msg = bot.send_message(OWNER_ID, "📢 Send or forward the **post** to publish:")
-        bot.register_next_step_handler(msg, prepare_broadcast)
-        bot.answer_callback_query(call.id)
-        
-    elif call.data == "admin_remove":
-        msg = bot.send_message(OWNER_ID, "🚫 Send the user's numeric **Telegram ID** to ban:")
-        bot.register_next_step_handler(msg, process_remove_user)
-        bot.answer_callback_query(call.id)
+            except Exception:
+                bot.send_message(OWNER_ID, "❌ Failed to deliver reply.")
 
 
 # Broadcast Prep
@@ -391,10 +243,10 @@ def prepare_broadcast(message):
     broadcast_msg_payload = message
     
     markup = InlineKeyboardMarkup()
-    btn_send = InlineKeyboardButton("🚀 Send All", callback_data="confirm_send_all")
+    btn_send = InlineKeyboardButton("🚀 Broadcast Now", callback_data="confirm_send_all")
     markup.add(btn_send)
     
-    bot.send_message(OWNER_ID, "👀 **Post loaded.** Ready to broadcast?", reply_markup=markup, parse_mode="Markdown")
+    bot.send_message(OWNER_ID, "👀 **Post loaded.** Dispatch broadcast?", reply_markup=markup, parse_mode="Markdown")
 
 
 # Execute Broadcast
@@ -424,7 +276,7 @@ def execute_broadcast(call):
         except Exception:
             failed += 1
             
-    bot.send_message(OWNER_ID, f"📢 **Broadcast Finished!**\n\n✅ Sent: {success}\n❌ Blocked: {failed}", parse_mode="Markdown")
+    bot.send_message(OWNER_ID, f"📢 **Broadcast Finished!**\n\n✅ Sent: {success}\n❌ Failed: {failed}", parse_mode="Markdown")
     bot.answer_callback_query(call.id)
 
 
@@ -441,7 +293,7 @@ def process_remove_user(message):
         
         bot.send_message(OWNER_ID, f"✅ User `{target_id}` banned successfully.")
     else:
-        bot.send_message(OWNER_ID, "❌ Please enter digits only.")
+        bot.send_message(OWNER_ID, "❌ Enter digits only.")
 
 
 # System Clean (No Join/Leave Spams)

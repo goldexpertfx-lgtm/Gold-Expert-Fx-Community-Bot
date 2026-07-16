@@ -5,7 +5,7 @@ import time
 import threading
 
 # ⚠️ Yahan apna real bot token paste karein
-API_TOKEN = "8702563696:AAHb9hNZ4Q8Y5lnBOrr7AbooyLicmczV1bg"
+API_TOKEN = "8702563696:AAE5GVUaomXmBpbk-F8o4NU9qhG991YKmT8"
 
 # ⚠️ Apne Free Group aur Private Channel ki IDs yahan dalein (Must be integers, e.g. -100...)
 FREE_GROUP_ID = -4477244119  
